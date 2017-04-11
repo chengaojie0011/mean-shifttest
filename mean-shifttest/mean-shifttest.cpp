@@ -12,39 +12,23 @@
 using namespace cv;
 using namespace std;
 
-
-int min_my(int num1, int num2)
+//去高光处理
+void  rmHighlight(const Mat  &src, Mat &dst)
 {
-	return num1 < num2 ? num1 : num2;
-}
 
-void meanShiftMy()
-{
-	Mat  img = imread("C:\\Workspace\\mean-shifttest\\mean-shifttest\\5.jpg"); //读入图像，RGB三通道    
-	imshow("原图像", img);
-	Mat res; //分割后图像  
-	Mat grayImage;
-	Mat out1;
-	Mat out2;
-	Mat out11;
-	Mat out111;
-	double  a1 = 0;
-	cvtColor(img, grayImage, CV_BGR2GRAY);//变为灰度图
-										  //高亮处理
-	out1 = grayImage;
-	int sl =210, m =3;
-	int mc = 0, c = 1, fr = 1, a3 = 0, b3 = 0;
-	for (int y = 0; y < img.rows; y++)
+	int a1 = 0;
+	dst = src;
+	int sl = 210, m = 3;
+	int mc = 0, c = 1, fr = 0, a3 = 0, b3 = 0;
+	for (int y = 0; y < src.rows; y++)
 	{
-		for (int x = 0; x < img.cols; x++)
+		for (int x = 0; x < src.cols; x++)
 		{
+			a1 = src.at<uchar>(y, x);
 
-			//cout << "y=" << y << endl;
-		//	cout << "x=" << x << endl;
-			a1 = grayImage.at<uchar>(y, x);
-			//cout << "a1=" << a1 << endl;
-			if (grayImage.at<uchar>(y, x) > sl)
+			if (src.at<uchar>(y, x) > sl)
 			{
+
 				mc = 0;
 				c = 0;
 				fr = 0;
@@ -53,80 +37,89 @@ void meanShiftMy()
 			{
 				if (mc == 0)
 				{
-					bool isvalid = true;
-						for (a3 = -1; a3 < 2; a3++)
+					for (a3 = -1; a3 < 2; a3++)
+					{
+						for (b3 = -1; b3 < 2; b3++)
 						{
-							for (b3 = -1; b3 < 2; b3++)
-							{
-								int temp = grayImage.at<uchar>(y, x);
-							//	cout << "temp=" << temp << endl;
-								if ((min_my(x + b3, img.cols - x - b3 - 1) < mc + m) || (min_my(y + a3, img.cols - y - a3 - 1) < mc + m))
-								{
-									continue;
-								}
-								if ((grayImage.at<uchar>(y + a3, x + b3) > sl))
-								{
-									isvalid = false;
-								}
-								if (grayImage.at<uchar>(y + a3, x + b3) <= sl)
-								{
+							int temp = src.at<uchar>(y, x);
 
-									c = c + 1;
-									fr = fr + grayImage.at<uchar>(y + a3, x + b3);
-								//	cout << "c=" << c << endl;
-									//cout << "fr=" << fr << endl;
-								}
-								if (c<3)
-								{
-									c = 0;
-									fr = 0;
-								}
+
+							if ((x + b3) < 1 || (x + b3) > (src.cols - 1) || (y + a3) < 1 || (y + a3) > (src.rows - 1))
+							{
+								continue;
+							}
+
+							if (src.at<uchar>(y + a3, x + b3) <= sl)
+							{
+
+								c = c + 1;
+								fr = fr + src.at<uchar>(y + a3, x + b3);
+
 							}
 						}
+					}
 				}
 				else
 				{
-				//	cout << "a3=" << a3 << endl;
-				//	cout << "mc=" << mc << endl;
+
 					for (a3 = -1 - mc; a3 < 2 + mc; a3++)
 					{
 
 						for (b3 = -1 - mc; b3 < 2 + mc; b3++)
 						{
-								if ((min_my(x + b3, img.cols - x - b3 - 1) < mc + m) || (min_my(y + a3, img.cols - y - a3 - 1) < mc + m))
-								{
-									continue;
-								}
-							if (grayImage.at<uchar>(y + a3, x + b3) <= sl)
+
+							if ((x + b3) < 1 || (x + b3) > (src.cols - 1) || (y + a3) < 1 || (y + a3) > (src.rows - 1))
+							{
+								continue;
+							}
+
+							if (src.at<uchar>(y + a3, x + b3) <= sl)
 							{
 
 								if ((abs(a3)*abs(a3) + abs(b3)* abs(b3)) >= 4)
 								{
 
 									c = c + 1;
-									fr = fr + grayImage.at<uchar>(y + a3, x + b3);
+									fr = fr + src.at<uchar>(y + a3, x + b3);
 								}
 
 							}
 						}
 					}
 				}
-				mc = mc + 1;
-				cout << "mc=" << mc << endl;
+				mc = mc + 2;
+				dst.at<uchar>(y, x) = fr / (c + 1);
 			}
-			//mc = mc + 2;
-			out1.at<uchar>(y, x) = fr / (c);
+
 		}
 	}
 
 	// 把图像边缘像素设置为0
-	out1.row(0).setTo(Scalar(0));
-	out1.row(out1.rows - 1).setTo(Scalar(0));
-	out1.col(0).setTo(Scalar(0));
-	out1.col(out1.cols - 1).setTo(Scalar(0));
-	cvtColor(out1, out11, CV_GRAY2BGR);//变为灰度图
+	dst.row(0).setTo(Scalar(0));
+	dst.row(dst.rows - 1).setTo(Scalar(0));
+	dst.col(0).setTo(Scalar(0));
+	dst.col(dst.cols - 1).setTo(Scalar(0));
+
+
+}
+
+void meanShiftMy()
+{
+	Mat  img = imread("7.jpg"); //读入图像，RGB三通道    
+	imshow("原图像", img);
+	Mat res; //分割后图像  
+	Mat grayImage;
+	Mat out1;
+	Mat out2;
+	Mat out11;
+	Mat out111;
+	int a1 = 0;
+	cvtColor(img, grayImage, CV_BGR2GRAY);//变为灰度图
+	rmHighlight(grayImage, out1);							  //高亮处理
+
+	cvtColor(out1, out11, CV_GRAY2BGR);//变为彩色图
 									   //获取自定义核  
-	Mat element = getStructuringElement(MORPH_RECT, Size(17, 17));
+	Mat element = getStructuringElement(MORPH_RECT, Size(25, 25));
 	//进行闭运算操作  
 	morphologyEx(out11, out111, MORPH_CLOSE, element);
 
@@ -156,37 +149,6 @@ void meanShiftMy()
 }
 
 
-void test1()
-{
-	Mat  img = imread("C:\\Workspace\\mean-shifttest\\mean-shifttest\\4.jpg"); //读入图像，RGB三通道    
-	imshow("原图像", img);
-	Mat res; //分割后图像  
-	Mat grayImage;
-	Mat out1;
-	Mat out2;
-	Mat out11;
-	Mat out111;
-	int a1 = 0;
-	cvtColor(img, grayImage, CV_BGR2GRAY);//变为灰度图
-										  //高亮处理
-	out1 = grayImage;
-	int sl = 100, m = 3;
-	int mc = 0, c = 1, fr = 1, a3 = 0, b3 = 0;
-	for (int y = 0; y < img.rows; y++)
-	{
-		for (int x = 0; x < img.cols; x++)
-		{
-
-			if ((min_my(x, img.cols - x - 1) < mc + m) || (min_my(y, img.cols - y - 1) < mc + m))
-			{
-				continue;
-			}
-			cout << "x=" << x << endl;
-			cout << "y=" << y << endl;
-
-		}
-	}
-}
 
 
 int main(int argc, char** argv)
