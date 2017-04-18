@@ -108,15 +108,18 @@ void  rmHighlight(const Mat  &src, Mat &dst)
 
 }
 
-void   waterLineFound(const Mat  &src,Mat &dst)
+void   waterLineFound(const Mat  &src, Point  &pmax1, Point  &pmax2)
 {
-	Mat grayImage, midImage,midImage2;//临时变量和目标图的定义  
+	Mat grayImage, midImage,midImage2,dst;//临时变量和目标图的定义  
 	Mat out1;
 	Mat out2;
 	Mat out3;
 	Mat out4;
 
 	cvtColor(src, grayImage, CV_BGR2GRAY);//变为灰度图
+
+	cvtColor(grayImage, midImage2, CV_GRAY2BGR);
+	dst = midImage2;
 
 											   //获取自定义核  
 	Mat element = getStructuringElement(MORPH_RECT, Size(15, 15));
@@ -134,7 +137,7 @@ void   waterLineFound(const Mat  &src,Mat &dst)
 	HoughLines(midImage, lines, 1, CV_PI / 180, 100, 0, 0);
 	//imshow("test", midImage);
 	int x, y, line_length, line_longest;
-	Point pmax1, pmax2;
+	//Point pmax1, pmax2,pout1,pout2;
 	line_longest = 0;
 	for (size_t i = 0; i < lines.size(); i++)
 	{
@@ -156,13 +159,10 @@ void   waterLineFound(const Mat  &src,Mat &dst)
 			pmax1 = pt1;
 			pmax2 = pt2;
 		}
-
+		//line(dst, pt1, pt2, Scalar(0, 0, 255), 1, CV_AA);
 
 	}
-	cvtColor(grayImage, midImage2, CV_GRAY2BGR);//转化边缘检测后的图为灰度图  
-	dst = midImage2;
-	line(dst, pmax1, pmax2, Scalar(0, 0,255), 1, CV_AA);
-	
+
 
 }
 
@@ -188,9 +188,9 @@ void meanShiftMy(const Mat  &src, Mat &dst)
 									   //获取自定义核  
 	Mat element = getStructuringElement(MORPH_RECT, Size(3,3));
 	//进行闭运算操作  
-	morphologyEx(out11, out111, MORPH_CLOSE ,element);
+	//morphologyEx(out11, out111, MORPH_CLOSE ,element);
 
-	medianBlur(out111,out2, 5);//中值滤波
+	medianBlur(out11,out2, 5);//中值滤波
 
 	//imshow("test",out2);
 
@@ -222,31 +222,172 @@ void floodFillMy(const Mat  &src, Mat &dst)
 	
 }
 
-void   histogramMy(const Mat  &src, Mat &dst)
+void   histogramMy(const Mat  &src, Mat &hisimage,Point  pout1,Point  pout2,int &gmax,int &gmin)
 {
+	
 
+	Mat colorimage,grayimage;
+	cvtColor(src, grayimage, CV_BGR2GRAY);
+	cvtColor(grayimage, colorimage, CV_GRAY2BGR);//变为灰度图
+	cvtColor(colorimage, hisimage, CV_BGR2GRAY);
+
+	//为计算直方图配置变量  
+	//首先是需要计算的图像的通道，就是需要计算图像的哪个通道（bgr空间需要确定计算 b或g货r空间）  
+		int channels = 0;
+	//然后是配置输出的结果存储的 空间 ，用MatND类型来存储结果  
+	MatND dstHist;
+	//接下来是直方图的每一个维度的 柱条的数目（就是将数值分组，共有多少组）  
+	int histSize[] = { 256 };       //如果这里写成int histSize = 256;   那么下面调用计算直方图的函数的时候，该变量需要写 &histSize  
+									//最后是确定每个维度的取值范围，就是横坐标的总数  
+									//首先得定义一个变量用来存储 单个维度的 数值的取值范围  
+	float midRanges[] = { 0, 256 };
+	const float *ranges[] = { midRanges };
+	cout <<"y="<< src.rows <<"x="<< src.cols << endl;
+	cout << "y2=" <<hisimage.rows << "x2=" << hisimage.cols << endl;
+	cout << "p1=" << pout1 << "p2=" << pout2 << endl;
+	cout << "p1.x=" << pout1.x << "p1.y=" << pout1.y << endl;
+	for (int y = 0; y <src.rows; y++)
+	{
+		for (int x = 0; x <src.cols; x++)
+		{
+			if ((x ) < 10 || (x ) > (src.cols - 10) || (y ) < 10 || (y ) > (src.rows - 10))
+			{
+				hisimage.at<uchar>(y, x) = grayimage.at<uchar>(y, x);
+			}
+			if (y>( x*(pout1.y-pout2.y) /(pout1.x-pout2.x)+ pout2.y))  
+			{
+				hisimage.at<uchar>(y, x) = grayimage.at<uchar>(y, x);
+
+			}
+			else
+			{
+				//hisimage.at<uchar>(y, x) = grayimage.at<uchar>(y, x);
+				hisimage.at<uchar>(y, x) =290;
+
+			}
+		}
+	}
+
+	//imshow("test", hisimage);
+
+
+	calcHist(&hisimage, 1, &channels, Mat(), dstHist, 1, histSize, ranges, true, false);
+
+	//calcHist  函数调用结束后，dstHist变量中将储存了 直方图的信息  用dstHist的模版函数 at<Type>(i)得到第i个柱条的值  
+	//at<Type>(i, j)得到第i个并且第j个柱条的值  
+
+	//开始直观的显示直方图——绘制直方图  
+	//首先先创建一个黑底的图像，为了可以显示彩色，所以该绘制图像是一个8位的3通道图像  
+	Mat drawImage = Mat::zeros(Size(256, 256), CV_8UC3);
+	//因为任何一个图像的某个像素的总个数，都有可能会有很多，会超出所定义的图像的尺寸，针对这种情况，先对个数进行范围的限制  
+	//先用 minMaxLoc函数来得到计算直方图后的像素的最大个数  
+	double g_dHistMaxValue;
+	minMaxLoc(dstHist, 0, &g_dHistMaxValue, 0, 0);
+	//将像素的个数整合到 图像的最大范围内  
+	//遍历直方图得到的数据  
+	for (int i = 0; i < 256; i++)
+	{
+		int value = cvRound(dstHist.at<float>(i) * 256 * 0.9 / g_dHistMaxValue);
+		//cout << dstHist.at<float>(i) << endl;
+		line(drawImage, Point(i, drawImage.rows - 1), Point(i, drawImage.rows - 1 - value), Scalar(255, 0, 0));
+	}
+	int  minValue = 1;
+	for (int i=0; i < 256; i++)
+	{
+		float iminValue = dstHist.at<float>(i);
+		if ((iminValue > minValue)&&(i>2))
+		{
+			gmin = i;
+			break;
+		}
+	}
+	//  寻找直方图的右端  
+	int imax = 255;
+	for (int i = 255; i >= 0; i--)
+	{
+		float imaxValue = dstHist.at<float>(i);
+		if ((imaxValue > minValue) && (i<254))
+		{
+			gmax = i;
+			break;
+		}
+	}
+	//cout << "gmax=" << gmax<< "gmin=" << gmin << endl;
+	//imshow("【直方图】", drawImage);
+
+
+}
+
+void  boatDetection(const Mat  &src, Mat &dst,Point  pout1, Point  pout2,int gmax,int gmin)
+{
+	//threshold(src, dst, 120, 255, CV_THRESH_BINARY);
+	Mat colorimage, grayimage;
+	cvtColor(src, colorimage, CV_GRAY2BGR);
+	cvtColor(colorimage,dst, CV_BGR2GRAY);//变为灰度图
+
+	for (int y = 0; y < src.rows; y++)
+	{
+		for (int x = 0; x < src.cols; x++)
+		{
+			
+				if ( dst.at<uchar>(y, x) <130&& dst.at<uchar>(y, x) >53)
+				{
+					dst.at<uchar>(y, x) = 255;
+				}
+				else if(dst.at<uchar>(y, x) >=150)
+				{
+					dst.at<uchar>(y, x) =0;
+				}
+				else {
+					dst.at<uchar>(y, x) =0;
+				}
+
+		}
+	}
 }
 
 int main(int argc, char** argv)
 {
 	//读入图像，RGB三通道    
 	Mat  srcImage = imread("4.jpg"); 
-	imshow("src", srcImage);
+	
+	//imshow("src", srcImage);
 
   //进行meanshift处理并进行目标识别
 	Mat  outMeanshift;
 	meanShiftMy(srcImage,outMeanshift);
-	imshow("mean_shift", outMeanshift);
+	//imshow("mean_shift", outMeanshift);
 
 	//识别海天线
 	Mat outwater;
-	waterLineFound(outMeanshift, outwater);
-	imshow("waterline", outwater);
+	Point pmax1, pmax2, pout1, pout2;
+	waterLineFound(srcImage,pmax1, pmax2);
+
+	pout1.x =srcImage.cols;
+	pout1.y = pmax2.y - (pmax2.x - srcImage.cols)*(pmax2.y - pmax1.y) / (pmax2.x - pmax1.x);
+	pout2.y = pmax2.y - pmax2.x*(pmax2.y - pmax1.y) / (pmax2.x - pmax1.x);
+	pout2.x = 0;
+	line(srcImage, pout1, pout2, Scalar(0, 0, 255), 1, CV_AA);
+	imshow("outwater",srcImage);
+
+	//直方图提取
+	Mat histogram,test1;
+	int hismin, hismax;
+	histogramMy(outMeanshift,histogram,pout1,pout2,hismax,hismin);
+	imshow("his", histogram);
+	int x = histogram.at<uchar>(178, 1);
+cout << "gmax=" << hismax << "gmin=" << hismin << endl;
+cout << "像素值=" <<x<< endl;
+	boatDetection(histogram, test1,pout1, pout2, hismax, hismin);
+	imshow("test1", test1);
+
+
+
 
 	//漫水填充
 	Mat outfloodFill;
 	floodFillMy(outMeanshift, outfloodFill);
-	imshow("floodFill", outfloodFill);
+	//imshow("floodFill", outfloodFill);
 
 	waitKey(0);
 	
