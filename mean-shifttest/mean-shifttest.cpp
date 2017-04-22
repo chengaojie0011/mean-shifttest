@@ -11,7 +11,7 @@
 #include <math.h>  
 using namespace cv;
 using namespace std;
-
+#define MIN_AREA 1000//定义最小有效的矩形面积
 vector<Vec2f> lines;//定义一个矢量结构lines用于存放得到的线段矢量集合  
 
 //去高光处理
@@ -246,28 +246,94 @@ void   histogramMy(const Mat  &src, Mat &hisimage,Point  pout1,Point  pout2,int 
 	cout << "y2=" <<hisimage.rows << "x2=" << hisimage.cols << endl;
 	cout << "p1=" << pout1 << "p2=" << pout2 << endl;
 	cout << "p1.x=" << pout1.x << "p1.y=" << pout1.y << endl;
+
+
+
+	Point d201, d202;
+	d201.x = pout1.x;
+	d201.y = pout1.y + 50;
+	d202.x = pout2.x;
+	d202.y = pout2.y + 50;
+
+	Point t201, t202;
+	t201.x = pout1.x;
+	t201.y = pout1.y -20;
+	t202.x = pout2.x;
+	t202.y = pout2.y - 20;
+	//line(grayimage, d201, d202, Scalar(0, 0, 255), 1, CV_AA);
+	//line(grayimage, t201, t202, Scalar(0, 0, 255), 1, CV_AA);
+	//line(grayimage, pout1, pout2, Scalar(0, 0, 255), 1, CV_AA);
+
+	//如果像素在水天线下且与垂直线上的点像素差大于1，且与上个像素的点的像素差小于2，则判断为岸上
+	int topvalue = 20;
+	int downvalue = -30;
 	for (int y = 0; y <src.rows; y++)
 	{
 		for (int x = 0; x <src.cols; x++)
 		{
-			if ((x ) < 10 || (x ) > (src.cols - 10) || (y ) < 10 || (y ) > (src.rows - 10))
+			
+	
+			if ((x ) < 1 || (x ) > (src.cols - 1) || (y ) < 1 || (y ) > (src.rows - 1))
 			{
-				hisimage.at<uchar>(y, x) = grayimage.at<uchar>(y, x);
+				continue;
 			}
-			if (y>( x*(pout1.y-pout2.y) /(pout1.x-pout2.x)+ pout2.y))  
+		
+			if (y > (x*(pout1.y - pout2.y) / (pout1.x - pout2.x) + pout2.y) && y < (x*(pout1.y - pout2.y) / (pout1.x - pout2.x) + pout2.y) + 40)
 			{
-				hisimage.at<uchar>(y, x) = grayimage.at<uchar>(y, x);
+				int ycp = x*(pout1.y - pout2.y) / (pout1.x - pout2.x) + pout2.y-2; 
+				//if (grayimage.at<uchar>(y, x)  <=grayimage.at<uchar>(ycp, x)+1  && grayimage.at<uchar>(y, x) >= grayimage.at<uchar>(ycp, x) -10&& abs(grayimage.at<uchar>(y, x)- grayimage.at<uchar>(y-1, x)<2))
+			//	{
+				if (grayimage.at<uchar>(y, x) <= grayimage.at<uchar>(ycp, x) + topvalue&& grayimage.at<uchar>(y, x) >= grayimage.at<uchar>(ycp, x) +downvalue)
+				{
+					hisimage.at<uchar>(y, x) =255;
+				}
+				
 
 			}
-			else
+		
+		}
+	}
+	//imshow("test1", hisimage);
+	for (int y = 0; y < src.rows; y++)
+	{
+		for (int x = 0; x < src.cols; x++)
+		{
+			if ((x) < 10 || (x) > (src.cols - 10) || (y) < 10 || (y) > (src.rows - 10))
 			{
-				//hisimage.at<uchar>(y, x) = grayimage.at<uchar>(y, x);
-				hisimage.at<uchar>(y, x) =290;
+				continue;
+			}
+
+			if (y >(x*(pout1.y - pout2.y) / (pout1.x - pout2.x) + pout2.y) && y < (x*(pout1.y - pout2.y) / (pout1.x - pout2.x) + pout2.y) + 40)
+			{
+				int ycp = x*(pout1.y - pout2.y) / (pout1.x - pout2.x) + pout2.y - 2;
+
+				//削去船体部分的误去除
+				if (grayimage.at<uchar>(y, x) > grayimage.at<uchar>(ycp, x) + topvalue ||grayimage.at<uchar>(y, x) <grayimage.at<uchar>(ycp, x) +downvalue)
+				{
+					//未被削去的点垂直下方的五十个像素变回原来的灰度值
+					for (int icg = 0; icg < 50; icg++)
+					{
+						hisimage.at<uchar>(y + icg, x) = grayimage.at<uchar>(y + icg, x);
+					}
+				}
+				//如果像素的左右8像素都为削去点，则改点也判断为削去点
+				for (int ilr = 1; ilr < 9; ilr++)
+				{
+					if (hisimage.at<uchar>(y, x - ilr) == 255 && hisimage.at<uchar>(y, x + ilr) == 255)
+					{
+						hisimage.at<uchar>(y, x) = 255;
+					}
+				}
+			
 
 			}
 		}
 	}
-
+	//imshow("test1", hisimage);
+	//line(hisimage, d201, d202, Scalar(0, 0, 255), 1, CV_AA);
+	//line(hisimage, t201, t202, Scalar(0, 0, 255), 1, CV_AA);
+	//line(hisimage, pout1, pout2, Scalar(0, 0, 255), 1, CV_AA);
+//	imshow("gra", grayimage);
 	//imshow("test", hisimage);
 
 
@@ -318,6 +384,63 @@ void   histogramMy(const Mat  &src, Mat &hisimage,Point  pout1,Point  pout2,int 
 
 }
 
+void separateShore(const Mat &src, Mat &dst, Point  pout1, Point  pout2)
+{
+	Mat res; //分割后图像  
+	Mat grayImage;
+	Mat out1;
+	Mat out2;
+	Mat out3;
+	Mat out4;
+	Mat out11;
+	Mat out111;
+	int a1 = 0;
+
+	cvtColor(src, grayImage, CV_BGR2GRAY);//变为灰度图
+
+	rmHighlight(grayImage, out1);							  //高亮处理
+
+	cvtColor(out1, out11, CV_GRAY2BGR);//变为彩色图
+									   //imshow("caise", out11);
+									   //获取自定义核  
+	Mat element = getStructuringElement(MORPH_RECT, Size(7, 7));
+	//进行闭运算操作  
+	morphologyEx(out11, out111, MORPH_CLOSE ,element);
+
+	medianBlur(out111, out2, 21);//中值滤波
+
+							   //imshow("test",out2);
+
+							   //cvtColor(out2, out3, CV_BGR2Luv);//变为彩色图
+	int spatialRad = 30;  //空间窗口大小  
+	int colorRad = 30;   //色彩窗口大小  
+	int maxPyrLevel = 2;  //金字塔层数  
+	pyrMeanShiftFiltering(out2, dst, spatialRad, colorRad, maxPyrLevel); //色彩聚类平滑滤波  
+	imshow("test1", dst);
+
+	RNG  rng = theRNG();
+	Mat mask(src.rows + 2, src.cols + 2, CV_8UC1, Scalar::all(0));  //掩模  
+	for (int y = 0; y < src.rows; y++)
+	{
+		for (int x = 0; x < src.cols; x++)
+		{
+			if (mask.at<uchar>(y + 1, x + 1) == 0)  //非0处即为1，表示已经经过填充，不再处理  
+			{
+				Scalar newVal(rng(256), rng(256), rng(256));
+				floodFill(dst, mask, Point(x, y), newVal, 0, Scalar::all(5), Scalar::all(5)); //执行漫水填充  
+
+			}
+		}
+	}
+
+	
+	Mat grayImage2;
+	cvtColor(dst, grayImage2, CV_BGR2GRAY);//变为灰度图
+	//imshow("test2", dst);
+	imshow("test3", grayImage2);
+
+}
+
 void  boatDetection(const Mat  &src, Mat &dst,Point  pout1, Point  pout2,int gmax,int gmin)
 {
 	//threshold(src, dst, 120, 255, CV_THRESH_BINARY);
@@ -325,6 +448,25 @@ void  boatDetection(const Mat  &src, Mat &dst,Point  pout1, Point  pout2,int gma
 	cvtColor(src, colorimage, CV_GRAY2BGR);
 	cvtColor(colorimage,dst, CV_BGR2GRAY);//变为灰度图
 
+	for (int y = 0; y < src.rows; y++)
+	{
+		for (int x = 0; x < src.cols; x++)
+		{
+
+
+			if ((x) < 1 || (x) > (src.cols - 1) || (y) < 1 || (y) > (src.rows - 1))
+			{
+				continue;
+			}
+
+			if (y <=(x*(pout1.y - pout2.y) / (pout1.x - pout2.x) + pout2.y))
+			{
+				dst.at<uchar>(y, x) = 255;
+
+			}
+
+		}
+	}
 	for (int y = 0; y < src.rows; y++)
 	{
 		for (int x = 0; x < src.cols; x++)
@@ -341,10 +483,38 @@ void  boatDetection(const Mat  &src, Mat &dst,Point  pout1, Point  pout2,int gma
 				else {
 					dst.at<uchar>(y, x) =0;
 				}
-
 		}
 	}
+	
+	Mat element = getStructuringElement(MORPH_RECT, Size(3, 3));
+	Mat out;
+	//进行腐蚀操作  
+	erode(dst, out, element);
+	//for (int y = 0; y < src.rows; y++)
+	//{
+	//	for (int x = 0; x < src.cols; x++)
+	//	{
+	//		if (y > (x*(pout1.y - pout2.y) / (pout1.x - pout2.x) + pout2.y) && y < (x*(pout1.y - pout2.y) / (pout1.x - pout2.x) + pout2.y) + 50)
+	//		{
+	//			for (int i = 1; i < 3; i++)
+	//			{
+	//				if (dst.at<uchar>(y - i, x) == 0 && dst.at<uchar>(y + i, x) == 0)
+	//				{
+	//					dst.at<uchar>(y, x) = 0;
+	//				}
+	//			}
+
+	//		}
+	//	}
+	//}
+	
+	
+
+	//imshow("test4211", dst);
+	//imshow("test4212", out);
+
 }
+
 
 int main(int argc, char** argv)
 {
@@ -353,7 +523,7 @@ int main(int argc, char** argv)
 	
 	//imshow("src", srcImage);
 
-  //进行meanshift处理并进行目标识别
+  //进行水面目标的meanshift处理并进行目标识别
 	Mat  outMeanshift;
 	meanShiftMy(srcImage,outMeanshift);
 	//imshow("mean_shift", outMeanshift);
@@ -367,27 +537,35 @@ int main(int argc, char** argv)
 	pout1.y = pmax2.y - (pmax2.x - srcImage.cols)*(pmax2.y - pmax1.y) / (pmax2.x - pmax1.x);
 	pout2.y = pmax2.y - pmax2.x*(pmax2.y - pmax1.y) / (pmax2.x - pmax1.x);
 	pout2.x = 0;
-	line(srcImage, pout1, pout2, Scalar(0, 0, 255), 1, CV_AA);
-	imshow("outwater",srcImage);
+	//line(srcImage, pout1, pout2, Scalar(0, 0, 255), 1, CV_AA);
+
+	//imshow("outwater",srcImage);
 
 	//直方图提取
 	Mat histogram,test1;
 	int hismin, hismax;
 	histogramMy(outMeanshift,histogram,pout1,pout2,hismax,hismin);
-	imshow("his", histogram);
+  //  imshow("his", histogram);
 	int x = histogram.at<uchar>(178, 1);
 cout << "gmax=" << hismax << "gmin=" << hismin << endl;
 cout << "像素值=" <<x<< endl;
 	boatDetection(histogram, test1,pout1, pout2, hismax, hismin);
-	imshow("test1", test1);
+	//imshow("test1", test1);
 
 
 
 
 	//漫水填充
 	Mat outfloodFill;
-	floodFillMy(outMeanshift, outfloodFill);
+
+	//floodFillMy(outMeanshift, outfloodFill);
 	//imshow("floodFill", outfloodFill);
+
+	//山和水的分割和识别
+	Mat	 outseparateshore;
+	separateShore(srcImage, outseparateshore,pout1,pout2);
+//	imshow("outseparateshore", outseparateshore);
+
 
 	waitKey(0);
 	
