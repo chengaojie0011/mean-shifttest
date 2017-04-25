@@ -442,7 +442,7 @@ void   histogramSky(const Mat  &src, Mat &hisimage, Point  pout1, Point  pout2, 
 		int value = cvRound(dstHist.at<float>(i) * 256 * 0.9 / g_dHistMaxValue);
 		/*if (dstHist.at<float>(i)!=0 && dstHist.at<float>(i)!=255&&value>=50)
 		{*/
-		if (i!=0 && i!=255 && dstHist.at<float>(i)>500)
+		if (i!=0 && i!=255 && dstHist.at<float>(i)>2500)
 		{
 			hisvalue.insert(i);
 			//cout <<"灰度值="<<i << " 像素量="<< dstHist.at<float>(i) << endl;
@@ -491,9 +491,23 @@ void separateShore(const Mat &src, Mat &dst, Point  pout1, Point  pout2)
 	Mat out111;
 	int a1 = 0;
 
+	int g_nContrastValue =110;
+	//int g_nBrightValue = 80;
+	Mat src1;
+	src.copyTo(src1);
+	//for (int y = 0; y < src.rows; y++)
+	//{
+	//	for (int x = 0; x < src.cols; x++)
+	//	{
+	//		for (int c = 0; c < 3; c++)
+	//		{
+	//			src1.at<Vec3b>(y, x)[c] = saturate_cast<uchar>((g_nContrastValue*0.01)*(src.at<Vec3b>(y, x)[c]) );
+	//		}
+	//	}
+	//}
 
-
-	cvtColor(src, grayImage, CV_BGR2GRAY);//变为灰度图
+//	imshow("src1", src1);
+	cvtColor(src1, grayImage, CV_BGR2GRAY);//变为灰度图
 
 	rmHighlight(grayImage, out1);							  //高亮处理
 
@@ -502,11 +516,11 @@ void separateShore(const Mat &src, Mat &dst, Point  pout1, Point  pout2)
 	cvtColor(out1, out11, CV_GRAY2BGR);//变为彩色图
 									   //imshow("caise", out11);
 									   //获取自定义核  
-	Mat element = getStructuringElement(MORPH_RECT, Size(7, 7));
+	Mat element = getStructuringElement(MORPH_RECT, Size(11, 11));
 	//进行闭运算操作  
 	morphologyEx(out11, out111, MORPH_CLOSE ,element);
 
-	medianBlur(out111, out2, 21);//中值滤波
+	medianBlur(out111, out2, 11);//中值滤波
 
 							   //imshow("test",out2);
 
@@ -516,7 +530,9 @@ void separateShore(const Mat &src, Mat &dst, Point  pout1, Point  pout2)
 	int maxPyrLevel = 2;  //金字塔层数  
 	Mat dst1;
 	pyrMeanShiftFiltering(out2, dst1, spatialRad, colorRad, maxPyrLevel); //色彩聚类平滑滤波  
-	imshow("test1", dst1);
+	//imshow("mean-shift", dst1);
+	Mat dst2;
+	dst1.copyTo(dst2);
 	dst1.copyTo(dst);
 	RNG  rng = theRNG();
 	Mat mask(src.rows + 2, src.cols + 2, CV_8UC1, Scalar::all(0));  //掩模  
@@ -536,11 +552,11 @@ void separateShore(const Mat &src, Mat &dst, Point  pout1, Point  pout2)
 			}
 		}
 	}
-	imshow("test11", dst1);
+	//imshow("floodfill", dst1);
 	Mat grayImage2;
 	cvtColor(dst1, grayImage2, CV_BGR2GRAY);//变为灰度图
 
-	//imshow("test11", dst);
+
 	for (int y = 0; y < src.rows; y++)
 	{
 		for (int x = 0; x < src.cols; x++)
@@ -548,20 +564,47 @@ void separateShore(const Mat &src, Mat &dst, Point  pout1, Point  pout2)
 
 			if (y > (x*(pout1.y - pout2.y) / (pout1.x - pout2.x) + pout2.y))
 			{
-			grayImage2.at<uchar>(y, x) = 0;
+				grayImage2.at<uchar>(y, x) = 0;
 
 			}
 		}
 	}
-
+	//imshow("floodgray", grayImage2);
 	set<int> hisvalue;
 	Mat  histogramimage;
 	histogramSky(grayImage2, histogramimage, pout1, pout2, hisvalue);
+
+	imshow("floodgray", grayImage2);
+	Mat grayImage3;
+	grayImage2.copyTo(grayImage3);
+	//imshow("dst2", dst2);
+	int number = 0;
+	Mat dstgray;
+	cvtColor(dst2, dstgray, CV_BGR2GRAY);//变为灰度图
+	//for (int y = 0; y < src.rows; y++)
+	//{
+	//	for (int x = 0; x < src.cols; x++)
+	//	{
+	//		if (grayImage2.at<uchar>(y, x) == 69)
+	//		{
+	//			dstgray.at<uchar>(y, x) = 255;
+	//			grayImage3.at<uchar>(y, x) = 255;
+
+	//		}
+	//	}
+	//}
+	//imshow("gray3", grayImage3);
+
+	//imshow("dstgray", dstgray);
 		//cout << "set 的 size 值为 :" << hisvalue.size() << endl;
 		set<int>::iterator it; //定义前向迭代器 
 							   //中序遍历集合中的所有元素  
-		int pixmin = 0,pixflood=0;
-	//imshow("test1111",grayImage2);
+		int pixmax = 0,pixflood=0;
+	//imshow("灰度flood",grayImage2);
+	//imshow("dst", dst);
+//	imshow("dst2", dst2);
+
+//	imshow("mean-shift-dst", dst);
 		for (it = hisvalue.begin(); it != hisvalue.end(); it++)
 		{
 			
@@ -573,14 +616,37 @@ void separateShore(const Mat &src, Mat &dst, Point  pout1, Point  pout2)
 			{
 				for (int x = 0; x < src.cols; x++)
 				{
-
+					if ((x) < 2 || (x) > (src.cols - 2) || (y) < 2 || (y) > (src.rows - 2))
+					{
+						continue;
+					}
 					if (y < (x*(pout1.y - pout2.y) / (pout1.x - pout2.x) + pout2.y))
 					{
+						
 						//cout << "set 的 值为 :" << *it<< endl;
-						if (grayImage2.at<uchar>(y, x) == *it)
+						if (grayImage2.at<uchar>(y, x) == *it&&grayImage2.at<uchar>(y - 1, x) == *it&&
+							grayImage2.at<uchar>(y + 1, x) == *it&&grayImage2.at<uchar>(y, x - 1) == *it&&grayImage2.at<uchar>(y, x + 1) == *it)
 						{
 							pixnumber++;
-							pixvaluenum = pixvaluenum + dst.at<uchar>(y, x);
+							pixvaluenum = pixvaluenum + dstgray.at<uchar>(y, x);
+							/*if (dst.at<uchar>(y, x)>100)
+							{
+								pixnumber++;
+								pixvaluenum = pixvaluenum + dst.at<uchar>(y, x)+500;
+							}
+							else if(dst.at<uchar>(y, x)<50)
+							{
+								pixvaluenum = pixvaluenum + dst.at<uchar>(y, x)-100;
+							}
+							else
+							{
+								pixvaluenum = pixvaluenum + dst.at<uchar>(y, x);
+							}
+						*/
+						/*	if (pixnumber==1000)
+							{
+								cout <<"set=" << *it << "pixaver=" << pixvaluenum / pixnumber << " pixvaluenum=" << pixvaluenum << "pixnumber=" << pixnumber << endl;
+							}*/
 					
 						}
 					}
@@ -588,24 +654,29 @@ void separateShore(const Mat &src, Mat &dst, Point  pout1, Point  pout2)
 			}
 			
 			pixaver = pixvaluenum / pixnumber;
-				if (pixmin <= pixaver)
+			cout <<"set="<<*it<< "pixaver=" << pixaver <<" pixvaluenum="<< pixvaluenum <<"pixnumbe="<< pixnumber<< endl;
+				if (pixmax <=pixaver)
 			{
-			pixmin = pixaver;
+			pixmax = pixaver;
 			pixflood = *it;
 			}
 		
 
 		}
-		//cout << " pixmin  的 值为 :" << pixmin << endl;
-		//cout << " pixflood 的 值为 :" << pixflood << endl;
+		cout << " pixmin  的 值为 :" << pixmax << endl;
+		cout << " pixflood 的 值为 :" << pixflood << endl;
+
+		//imshow("floodchange",grayImage2);
+	//	imshow("test", dst);
+
 		Point skycenter;
-		int skyleft=0,skyright=0,skytop=0,skybottom=0;
+		int skyleft=src.cols,skyright=0,skytop=src.rows,skybottom=0;
 		for (int y = 0; y < src.rows; y++)
 		{
 			for (int x = 0; x < src.cols; x++)
 			{
 			
-				if (y < (x*(pout1.y - pout2.y) / (pout1.x - pout2.x) + pout2.y))
+				if (y < (x*(pout1.y - pout2.y) / (pout1.x - pout2.x) + pout2.y)-10)
 				{
 					if (grayImage2.at<uchar>(y, x) == pixflood)
 					{
@@ -631,9 +702,80 @@ void separateShore(const Mat &src, Mat &dst, Point  pout1, Point  pout2)
 			}
 		}
 
-		
+		cout << "sleft=" << skyleft << "sright=" << skyright << "stop==" << skytop << "sbottom=" << skybottom << endl;
 		skycenter.x = (skyleft + skyright) / 2;
 		skycenter.y = (skytop + skybottom) / 2;
+		cout << "skycenterx=" << skycenter.x << "skycentery=" << skycenter.y << endl;
+
+		for (it = hisvalue.begin(); it != hisvalue.end(); it++)
+		{
+			int mouleft = src.cols, mouright = 0,moutop = src.rows , moubottom = 0;
+			Point moucenter;
+			moucenter.x = 0;
+			moucenter.y = 0;
+			cout << "set=" << *it  << endl;
+			if (*it != pixflood)
+			{
+				for (int y = 0; y < src.rows; y++)
+				{
+					for (int x = 0; x < src.cols; x++)
+					{
+						if ((x) < 2 || (x) > (src.cols - 2) || (y) < 2 || (y) > (src.rows - 2))
+						{
+							continue;
+						}
+		/*				int c = 0;
+						for (int a3 = -1; a3 < 2; a3++)
+						{
+							for (int b3 = -1; b3 < 2; b3++)
+							{
+								int temp = grayImage2.at<uchar>(y, x);
+
+								if (grayImage2.at<uchar>(y + a3, x + b3) =temp )
+								{
+
+									c = c + 1;
+
+								}
+							}
+						}*/
+						if (y < (x*(pout1.y - pout2.y) / (pout1.x - pout2.x) + pout2.y))
+						{
+						
+							if (grayImage2.at<uchar>(y, x) == *it&&grayImage2.at<uchar>(y-1, x)==*it&&
+								grayImage2.at<uchar>(y+1, x)==*it&&grayImage2.at<uchar>(y, x-1) == *it&&grayImage2.at<uchar>(y , x+1) == *it)
+							{
+								if (x <= mouleft)
+								{
+									mouleft = x;
+								}
+								if (x >= mouright)
+								{
+									mouright = x;
+								}
+								if (y <= moutop)
+								{
+									moutop = y;
+								}
+								if (y >= moubottom)
+								{
+									moubottom = y;
+								}
+							}
+						}
+					}
+				}
+
+				cout << "left=" << mouleft << "right=" << mouright << "top==" << moutop << "bottom=" << moubottom << endl;
+
+				moucenter.x = (mouleft + mouright) / 2;
+				moucenter.y = moubottom-(moubottom-moutop)/3 ;
+				cout << "centerx=" << moucenter.x << "centery=" << moucenter.y << endl;
+				putText(dst1, "m", moucenter, CV_FONT_HERSHEY_SIMPLEX, 0.5, Scalar(255, 255, 255), 2, 2);
+
+			}
+		}
+		cout << "0,0=" << grayImage2.at<uchar>(0, 0) << endl;
 		putText(dst1, "sky", skycenter, CV_FONT_HERSHEY_SIMPLEX, 0.5, Scalar(255, 255, 255), 2, 2); 
 		imshow("test1111", dst1);
 }
